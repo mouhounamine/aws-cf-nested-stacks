@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS CloudFormation Template for creating the Lambda function and
+    IAM role with DynamoDB access
+
+Parameters:
+    DynamoDBTableArn:
+        Type: String
+        Description: ARN de la table DynamoDB à utiliser
+
+Resources:
+    # Fonction Lambda
+    LambdaFunction:
+        Type: AWS::Lambda::Function
+        Properties:
+            FunctionName: http-crud-function
+            Runtime: python3.8
+            Role: !GetAtt LambdaRole.Arn # Attachement du rôle IAM à la fonction Lambda
+            Handler: lambda-dynamo.handler # Point d'entrée de la fonction Lambda
+            Code:
+                S3Bucket: http-crud-dlag-amine # Remplacez par le nom de votre bucket S3 contenant le code Lambda
+                S3Key: lambda/function.zip # Remplacez par le chemin du fichier zip contenant votre code Lambda
+            MemorySize: 128
+            Timeout: 60 # Durée maximale d'exécution de la fonction en secondes
+
+    # Rôle IAM pour la fonction Lambda
+    LambdaRole:
+        Type: AWS::IAM::Role
+        Properties:
+            RoleName: http-crud-lambda-role
+            AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                  - Effect: Allow
+                    Principal:
+                        Service: lambda.amazonaws.com
+                    Action: sts:AssumeRole
+            Policies:
+              - PolicyName: DynamoDBAccessPolicy
+                PolicyDocument:
+                    Version: "2012-10-17"
+                    Statement:
+                      - Effect: Allow
+                        Action:
+                          - dynamodb:GetItem
+                          - dynamodb:PutItem
+                          - dynamodb:UpdateItem
+                          - dynamodb:DeleteItem
+                        Resource: !Ref DynamoDBTableArn # Utilisation de la référence au paramètre DynamoDBTableArn
+
+Outputs:
+  LambdaFunctionArn:
+    Value: !GetAtt LambdaFunction.Arn # Retourne l'ARN de la table DynamoDB
+    Description: The ARN of the Lambda function

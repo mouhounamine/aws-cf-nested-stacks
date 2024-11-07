@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: API Gateway configuration for connecting with Lambda
+
+Parameters:
+  LambdaFunctionArn:
+    Type: String
+    Description: ARN de la fonction Lambda à utiliser dans l'API Gateway
+
+Resources:
+  # Création du rôle IAM pour API Gateway (Execution Role)
+  ApiGatewayExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ApiGatewayLambdaExecutionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ApiGatewayLambdaInvokePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !Ref LambdaFunctionArn # Utilisation de l'ARN de la Lambda pour restreindre l'accès
+
+  # Création de l'API Gateway HTTP
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: http-crud-tutorial-api # Nom de l'API
+      ProtocolType: HTTP
+
+  # Intégration Lambda avec l'API Gateway
+  LambdaIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi # Référence à l'API Gateway
+      IntegrationType: AWS_PROXY # Utilisation d'un proxy Lambda pour la connexion à Lambda
+      IntegrationUri: !Ref LambdaFunctionArn # Utilisation du paramètre passé pour l'ARN de la fonction Lambda
+      PayloadFormatVersion: '2.0'
+      CredentialsArn: !GetAtt ApiGatewayExecutionRole.Arn # Référence au rôle IAM pour l'exécution de Lambda
+
+  # Création des routes
+  GetItemsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /items # Route GET pour récupérer tous les items
+      Target: !Sub integrations/${LambdaIntegration}
+
+  GetItemByIdRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /items/{id} # Route GET pour récupérer un item par ID
+      Target: !Sub integrations/${LambdaIntegration}
+
+  PutItemRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: PUT /items # Route PUT pour mettre à jour un item
+      Target: !Sub integrations/${LambdaIntegration}
+
+  DeleteItemByIdRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: DELETE /items/{id} # Route DELETE pour supprimer un item par ID
+      Target: !Sub integrations/${LambdaIntegration}
+
+  # Création d'un déploiement de l'API Gateway
+  ApiGatewayDeployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    DependsOn:
+      - GetItemsRoute
+      - GetItemByIdRoute
+      - PutItemRoute
+      - DeleteItemByIdRoute # Dépend de la création des routes
+    Properties:
+      ApiId: !Ref HttpApi
+
+  # Création d'un stage de déploiement
+  ApiGatewayStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: $default # Stage par défaut pour l'API
+      AutoDeploy: true # Déploiement automatique lors de la création de la stack

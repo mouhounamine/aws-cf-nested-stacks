@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Main CloudFormation template that deploys DynamoDB, Lambda, and API Gateway as nested stacks
+
+Resources:
+  # Création du rôle IAM pour CloudFormation
+  CloudFormationS3Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: cloudformation.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: CloudFormationS3AccessPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: s3:GetObject
+            Resource: arn:aws:s3:::http-crud-dlag-amine/templates/* # Permet d'accéder aux fichiers dans le bucket S3
+
+  # Déploiement de la stack DynamoDB
+  DynamoDBStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://http-crud-dlag-amine.s3.eu-west-3.amazonaws.com/templates/dynamodb.yaml
+      TimeoutInMinutes: 5
+
+  # Déploiement de la stack Lambda avec l'ARN de la table DynamoDB en paramètre
+  LambdaStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://http-crud-dlag-amine.s3.eu-west-3.amazonaws.com/templates/lambda.yaml
+      TimeoutInMinutes: 5
+      Parameters:
+        DynamoDBTableArn: !GetAtt DynamoDBStack.Outputs.DynamoDBTableArn
+
+  # Déploiement de la stack API Gateway avec l'ARN de la Lambda en paramètre
+  ApiGatewayStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://http-crud-dlag-amine.s3.eu-west-3.amazonaws.com/templates/api-gateway.yaml
+      TimeoutInMinutes: 5
+      Parameters:
+        LambdaFunctionArn: !GetAtt LambdaStack.Outputs.LambdaFunctionArn # Passer l'ARN de Lambda à l'API Gateway
+
+Outputs:
+  DynamoDBTableArn:
+    Value: !GetAtt DynamoDBStack.Outputs.DynamoDBTableArn
+    Description: ARN de la table DynamoDB créée
+
+  LambdaFunctionArn:
+    Value: !GetAtt LambdaStack.Outputs.LambdaFunctionArn
+    Description: ARN de la fonction Lambda créée

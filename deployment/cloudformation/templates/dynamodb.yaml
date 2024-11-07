@@ -1,19 +1,27 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: AWS CloudFormation Template for creating related DynamoDB resources
+Description: AWS CloudFormation Template for creating DynamoDB resources
 
 Resources:
-    DynamoDBTable:
-        Type: AWS::DynamoDB::Table
-        Properties:
-            Name: "http-crud-items"
-            AttributeDefinitions:
-                - AttributeName: "id"
-                  AttributeType: "String"
-            KeySchema:
-                - AttributeName: "id"
-                  KeyType: "Hash"
-            BillingMode: "PROVISIONED"
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: http-crud-items
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
 
 Outputs:
-    DynamoDBTableName:
-        Value: !Ref DynamoDBTable
+  DynamoDBTableName:
+    Value: !Ref DynamoDBTable # Retourne le nom de la table
+    Description: The name of the DynamoDB table
+
+  DynamoDBTableArn:
+    Value: !GetAtt DynamoDBTable.Arn # Retourne l'ARN de la table DynamoDB
+    Description: The ARN of the DynamoDB table
